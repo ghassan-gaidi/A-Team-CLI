@@ -78,12 +78,25 @@ def join(
                 title="🚪 Joined Room",
                 border_style="cyan"
             ))
+        
+        # Launch Chat Loop
+        from ateam.cli.chat import ChatInterface
+        import asyncio
+        
+        chat = ChatInterface(room_name, console=console)
+        asyncio.run(chat.run())
             
     except ValueError as e:
         console.print(f"[red]✗ Error:[/red] {e}")
         raise typer.Exit(1)
+    except KeyboardInterrupt:
+        # Avoid stack trace on Ctrl+C during room entry
+        console.print("\n[yellow]Exit.[/yellow]")
+        raise typer.Exit(0)
     except Exception as e:
         console.print(f"[red]✗ Unexpected error:[/red] {e}")
+        import traceback
+        # console.print(traceback.format_exc()) # Debug
         raise typer.Exit(1)
 
 

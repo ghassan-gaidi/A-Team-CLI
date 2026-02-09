@@ -61,18 +61,21 @@ class ConfigManager:
     def load(self) -> None:
         """Load configuration from file."""
         if not self.config_path.exists():
-            # For now, we'll use a placeholder if not found, 
-            # or in a real scenario, we'd trigger the init wizard.
-            # But during development, we might look in the .context dir or local root.
-            local_config = Path("config.yaml")
-            if local_config.exists():
-                self.config_path = local_config
+            # Dev search path
+            search_paths = [
+                Path("config.yaml"),
+                Path(".context/config.yaml"),
+                Path(__file__).parent.parent.parent / ".context" / "config.yaml",
+                Path(__file__).parent.parent.parent / "config.yaml",
+            ]
+            
+            for path in search_paths:
+                if path.exists():
+                    self.config_path = path
+                    break
             else:
-                context_config = Path(".context/config.yaml")
-                if context_config.exists():
-                    self.config_path = context_config
-                else:
-                    raise FileNotFoundError(f"Config file not found at {self.config_path}")
+                # If still not found, create a minimal default or raise
+                raise FileNotFoundError(f"Config file not found. Checked default and dev fallback paths.")
 
         with open(self.config_path, "r") as f:
             raw_data = yaml.safe_load(f)
