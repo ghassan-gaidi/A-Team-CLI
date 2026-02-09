@@ -90,7 +90,7 @@ class TestHistoryManager:
         for i in range(10):
             manager.add_message("user", f"Msg {i}")
             
-        last_3 = manager.get_last_messages(count=3)
+        last_3 = manager.get_last_messages(limit=3)
         assert len(last_3) == 3
         # Should be Msg 7, 8, 9 in that order
         assert last_3[0].content == "Msg 7"

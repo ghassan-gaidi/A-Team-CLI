@@ -155,12 +155,12 @@ class HistoryManager:
             for row in rows
         ]
 
-    def get_last_messages(self, count: int = 5) -> List[Message]:
+    def get_last_messages(self, limit: int = 5) -> List[Message]:
         """
         Retrieve the most recent messages.
 
         Args:
-            count: Number of recent messages to return
+            limit: Number of recent messages to return
 
         Returns:
             List of Message objects, ordered by timestamp ascending
@@ -170,7 +170,7 @@ class HistoryManager:
             # We sub-select to get them in ascending order for context windows
             cursor = conn.execute(
                 "SELECT * FROM (SELECT * FROM messages ORDER BY id DESC LIMIT ?) ORDER BY id ASC",
-                (count,)
+                (limit,)
             )
             rows = cursor.fetchall()
         finally:

@@ -16,7 +16,7 @@ class AgentConfig(BaseModel):
     """Configuration for an individual agent."""
     provider: str
     model: str
-    api_key_env: str
+    api_key_env: Optional[str] = None
     system_prompt: str
     temperature: float = 0.7
     max_tokens: int = 4096
