@@ -171,7 +171,7 @@ class ChatInterface:
         parts = cmd_line.split()
         cmd = parts[0].lower()
         
-        if cmd in ("exit", "quit", "q"):
+        if cmd in ("exit", "quit", "q", "leave"):
             self.should_exit = True
             self.console.print("[dim]Leaving room...[/dim]")
         
@@ -179,13 +179,50 @@ class ChatInterface:
             help_text = """
 [bold cyan]Available Commands:[/bold cyan]
 - [bold]/help[/bold]: Show this help message
-- [bold]/exit[/bold], [bold]/q[/bold]: Leave the room
-- [bold]/history[/bold]: Show conversation history
+- [bold]/exit[/bold], [bold]/leave[/bold]: Leave the room and exit the session
+- [bold]/switch <room>[/bold]: Switch to a different room
+- [bold]/status[/bold]: Show current room and agent information
+- [bold]/history[/bold]: Show conversation history (last 50 messages)
 - [bold]/clear[/bold]: Clear history in this room (irreversible!)
 - [bold]/agents[/bold]: List available agents
-- [bold]/agent <name>[/bold]: Switch default agent
+- [bold]/agent <name>[/bold]: Switch default agent for this session
             """
             self.console.print(Panel(help_text, title="Help"))
+
+        elif cmd == "status":
+            metadata = self.room_manager._load_metadata(self.room_name)
+            status_text = f"""
+[bold cyan]Room:[/bold cyan] {self.room_name}
+[bold cyan]Description:[/bold cyan] {metadata.description or "None"}
+[bold cyan]Messages:[/bold cyan] {metadata.message_count}
+[bold cyan]Default Agent:[/bold cyan] [magenta]@{self.current_agent}[/magenta]
+[bold cyan]Config Path:[/bold cyan] {self.config_manager.config_path}
+            """
+            self.console.print(Panel(status_text, title="📊 Room Status"))
+
+        elif cmd == "switch":
+            if len(parts) > 1:
+                new_room = parts[1]
+                try:
+                    self.validator.validate_room_name(new_room)
+                    # Join the new room
+                    self.room_name = new_room
+                    self.history_manager = self.room_manager.get_history(new_room)
+                    self.room_manager.join_room(new_room)
+                    
+                    self.console.print(f"\n[bold green]✓[/bold green] Switched to room: [bold cyan]{new_room}[/bold cyan]\n")
+                    
+                    # Display history of new room
+                    history = self.history_manager.get_last_messages(limit=5)
+                    if history:
+                        self.console.print("[dim]Recent context:[/dim]")
+                        for msg in reversed(history):
+                            self._display_message(msg.role, msg.content, msg.agent_tag)
+                            
+                except ValueError as e:
+                    self.console.print(f"[red]✗ Invalid room name:[/red] {e}")
+            else:
+                self.console.print("[yellow]Usage: /switch <room_name>[/yellow]")
             
         elif cmd == "history":
             history = self.history_manager.get_history(limit=50)

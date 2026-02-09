@@ -142,6 +142,38 @@ def rooms() -> None:
         raise typer.Exit(1)
 
 
+@app.command()
+def status() -> None:
+    """Show current session status and last active room."""
+    from ateam.core import RoomManager, ConfigManager
+    from rich.panel import Panel
+    
+    try:
+        manager = RoomManager()
+        rooms = manager.list_rooms()
+        
+        if not rooms:
+            console.print("[yellow]No active session or rooms found.[/yellow]")
+            return
+
+        # Find last active room based on metadata
+        last_room = max(rooms, key=lambda r: r.last_active)
+        config = ConfigManager()
+        
+        status_text = f"""
+[bold cyan]Last Active Room:[/bold cyan] {last_room.name}
+[bold cyan]Messages in Room:[/bold cyan] {last_room.message_count}
+[bold cyan]Last Activity:[/bold cyan] {last_room.last_active[:19].replace("T", " ")}
+[bold cyan]Default Agent:[/bold cyan] [magenta]@{config.config.default_agent}[/magenta]
+[bold cyan]Configuration:[/bold cyan] {config.config_path}
+        """
+        console.print(Panel(status_text, title="📊 A-Team Status", border_style="cyan"))
+        
+    except Exception as e:
+        console.print(f"[red]✗ Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
 def main() -> None:
     """Entry point for the CLI."""
     app()
