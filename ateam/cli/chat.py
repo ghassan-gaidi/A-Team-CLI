@@ -173,13 +173,20 @@ class ChatInterface:
 
             # --- Tool Call Handling ---
             tool_calls = self.tool_manager.parse_calls(full_response)
-            for tool_name, tool_arg in tool_calls:
+            for call_info in tool_calls:
                 from rich.prompt import Confirm
-                self.console.print(Panel(f"[bold yellow]Tool Call:[/bold yellow] {tool_name}\n[dim]Args: {tool_arg}[/dim]", title="🛠️ Agent Action"))
+                tool_name = call_info["name"]
+                
+                self.console.print(Panel(
+                    f"[bold yellow]Tool Call:[/bold yellow] {tool_name}\n"
+                    f"[dim]Args: {call_info['args']}[/dim]\n"
+                    f"[italic]{call_info['body'][:200]}...[/italic]", 
+                    title="🛠️ Agent Action"
+                ))
                 
                 if Confirm.ask(f"Allow [bold magenta]@{agent_name}[/bold magenta] to execute this?", default=True):
                     with self.console.status(f"[bold yellow]Executing {tool_name}...[/bold yellow]"):
-                        result = await self.tool_manager.run_tool(tool_name, tool_arg)
+                        result = await self.tool_manager.run_tool(call_info)
                     
                     self.console.print(Panel(result, title=f"✅ {tool_name} Result"))
                     
