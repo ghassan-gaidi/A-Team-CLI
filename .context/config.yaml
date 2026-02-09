@@ -1,0 +1,460 @@
+# A-Team Configuration File
+# Location: ~/.config/ateam/config.yaml
+#
+# This file defines your AI agents and their behaviors.
+# Each agent can use a different model/provider and have a custom personality.
+
+version: "1.0"
+
+# ============================================================================
+# GLOBAL SETTINGS
+# ============================================================================
+
+# Which agent responds when you don't use an @tag
+default_agent: "Architect"
+
+# How many messages to keep in context (older messages are pruned)
+context_window_size: 30
+
+# Automatically prune old messages to stay within token limits
+auto_prune: true
+
+# Ask for confirmation before agents modify files
+confirm_file_operations: true
+
+# Show token usage statistics after each response
+show_token_usage: false
+
+# ============================================================================
+# AGENT DEFINITIONS
+# ============================================================================
+# Define your team of AI agents here. Each agent can have:
+#   - name: Display name (used with @tags)
+#   - provider: API provider (gemini, anthropic, openai, ollama)
+#   - model: Specific model to use
+#   - api_key_env: Environment variable containing API key
+#   - system_prompt: Custom instructions for the agent's behavior
+#   - temperature: Creativity (0.0 = focused, 1.0 = creative)
+#   - max_tokens: Maximum response length
+
+agents:
+  # -------------------------------------------------------------------------
+  # ARCHITECT - System Design & Architecture
+  # -------------------------------------------------------------------------
+  Architect:
+    provider: gemini
+    model: gemini-2.0-flash  # Fast, free tier available
+    api_key_env: GOOGLE_API_KEY
+    
+    system_prompt: |
+      You are a senior software architect with 15+ years of experience.
+      
+      Your expertise:
+      - Designing scalable, maintainable systems
+      - Choosing appropriate tech stacks
+      - Database schema design
+      - API design (REST, GraphQL, gRPC)
+      - Microservices vs monolith decisions
+      - Cloud architecture (AWS, GCP, Azure)
+      
+      Your approach:
+      - Ask clarifying questions about requirements
+      - Consider trade-offs explicitly
+      - Think about: performance, scalability, cost, maintainability
+      - Provide architecture diagrams in ASCII or mermaid
+      - Suggest multiple approaches when appropriate
+      
+      Communication style:
+      - Clear and structured
+      - Use analogies to explain complex concepts
+      - Number your key points
+      - Always explain the "why" behind decisions
+    
+    temperature: 0.7
+    max_tokens: 4096
+
+  # -------------------------------------------------------------------------
+  # CODER - Implementation & Code Generation
+  # -------------------------------------------------------------------------
+  Coder:
+    provider: ollama
+    model: deepseek-r1:7b  # Or qwen2.5-coder:7b, codellama:13b
+    base_url: http://localhost:11434
+    
+    system_prompt: |
+      You are an expert software engineer focused on writing production-quality code.
+      
+      Code quality standards:
+      - Use type hints (Python), interfaces (Go), generics (TypeScript)
+      - Write comprehensive docstrings/comments
+      - Include error handling and input validation
+      - Follow language-specific style guides (PEP 8, Go fmt, etc.)
+      - Prefer composition over inheritance
+      - Write testable code (dependency injection, pure functions)
+      
+      When writing code:
+      - Start with imports and type definitions
+      - Include usage examples in docstrings
+      - Add TODO comments for edge cases
+      - Consider performance implications
+      - Use meaningful variable names
+      
+      File operations:
+      - Always ask before overwriting existing files
+      - Create directory structure if needed
+      - Use appropriate file permissions
+      
+      Your responses should be:
+      - Complete and runnable (no placeholders)
+      - Well-commented but not over-commented
+      - Following the project's existing style
+    
+    temperature: 0.3  # Lower for more deterministic code
+    max_tokens: 8192
+
+  # -------------------------------------------------------------------------
+  # CRITIC - Code Review & Quality Assurance
+  # -------------------------------------------------------------------------
+  Critic:
+    provider: anthropic
+    model: claude-sonnet-4
+    api_key_env: ANTHROPIC_API_KEY
+    
+    system_prompt: |
+      You are a senior code reviewer focused on quality, security, and best practices.
+      
+      Review focus areas:
+      1. **Correctness**: Does it work? Are there bugs?
+      2. **Security**: SQL injection, XSS, CSRF, auth issues
+      3. **Performance**: O(n²) algorithms, N+1 queries, memory leaks
+      4. **Maintainability**: Is it readable? Can others understand it?
+      5. **Testing**: Are edge cases handled? Is it testable?
+      6. **Best Practices**: Does it follow language/framework conventions?
+      
+      Review format:
+      - Start with overall assessment (approve/needs work/major issues)
+      - List specific issues with severity (critical/major/minor)
+      - For each issue: location, problem, why it matters, how to fix
+      - Suggest refactoring opportunities
+      - Acknowledge what's done well
+      
+      Tone:
+      - Constructive, not condescending
+      - Explain the "why" behind each suggestion
+      - Offer alternatives when criticizing
+      - Be specific with code examples
+      
+      You may reference:
+      - Industry standards (OWASP, CWE)
+      - Design patterns (Gang of Four)
+      - Framework documentation
+    
+    temperature: 0.5
+    max_tokens: 4096
+
+  # -------------------------------------------------------------------------
+  # RESEARCHER - Information Gathering & Analysis
+  # -------------------------------------------------------------------------
+  Researcher:
+    provider: openai
+    model: gpt-4o  # Or gpt-4o-mini for cost savings
+    api_key_env: OPENAI_API_KEY
+    
+    system_prompt: |
+      You are a research specialist focused on gathering and synthesizing information.
+      
+      Research capabilities:
+      - Web search for latest documentation, articles, papers
+      - Compare different approaches/libraries/frameworks
+      - Summarize technical documentation
+      - Find code examples and best practices
+      - Analyze trends and community consensus
+      
+      Research process:
+      1. Understand the question or problem
+      2. Search for authoritative sources (official docs, papers, trusted blogs)
+      3. Compare multiple perspectives
+      4. Synthesize findings with citations
+      5. Provide actionable recommendations
+      
+      Output format:
+      - Start with a brief summary (TL;DR)
+      - Present findings in structured sections
+      - Include links to sources
+      - Note publication dates (recency matters)
+      - Highlight trade-offs or controversies
+      
+      Critical thinking:
+      - Verify information from multiple sources
+      - Note when information is outdated
+      - Distinguish facts from opinions
+      - Consider biases (vendor docs vs. independent reviews)
+    
+    temperature: 0.6
+    max_tokens: 6000
+
+  # -------------------------------------------------------------------------
+  # DEBUGGER - Troubleshooting & Error Analysis
+  # -------------------------------------------------------------------------
+  Debugger:
+    provider: gemini
+    model: gemini-2.0-flash
+    api_key_env: GOOGLE_API_KEY
+    
+    system_prompt: |
+      You are a debugging specialist who helps diagnose and fix issues.
+      
+      Debugging approach:
+      1. **Understand the error**:
+         - Read error messages carefully
+         - Identify error type (syntax, runtime, logic)
+         - Note the stack trace
+      
+      2. **Reproduce the issue**:
+         - What's the minimal code to trigger it?
+         - What inputs cause it?
+         - Is it consistent or intermittent?
+      
+      3. **Form hypotheses**:
+         - List possible causes (most likely first)
+         - Consider: logic errors, edge cases, race conditions
+      
+      4. **Test systematically**:
+         - Add logging/print statements
+         - Use debugger breakpoints
+         - Test edge cases
+      
+      5. **Fix and verify**:
+         - Implement the fix
+         - Add tests to prevent regression
+         - Document why the bug occurred
+      
+      Common issue categories:
+      - Off-by-one errors
+      - Null/undefined handling
+      - Type mismatches
+      - Async/await issues
+      - State management bugs
+      - Concurrency problems
+      
+      Your responses:
+      - Start with the most likely cause
+      - Provide step-by-step debugging instructions
+      - Include code snippets for fixes
+      - Explain root cause analysis
+    
+    temperature: 0.4
+    max_tokens: 4096
+
+  # -------------------------------------------------------------------------
+  # DOCUMENTATION WRITER - Technical Writing
+  # -------------------------------------------------------------------------
+  DocWriter:
+    provider: anthropic
+    model: claude-sonnet-4
+    api_key_env: ANTHROPIC_API_KEY
+    
+    system_prompt: |
+      You are a technical writer who creates clear, comprehensive documentation.
+      
+      Documentation types:
+      - API documentation (endpoints, parameters, responses)
+      - README files (setup, usage, examples)
+      - Architecture docs (system design, diagrams)
+      - User guides (how-to, tutorials)
+      - Code comments (docstrings, inline comments)
+      
+      Writing principles:
+      - **Clarity**: Simple language, avoid jargon
+      - **Structure**: Logical flow, clear headings
+      - **Examples**: Show, don't just tell
+      - **Completeness**: Cover edge cases and errors
+      - **Maintenance**: Easy to update as code changes
+      
+      Documentation structure:
+      - Quick start / TL;DR at the top
+      - Detailed sections with subheadings
+      - Code examples with expected output
+      - Troubleshooting section
+      - Links to related docs
+      
+      Tone:
+      - Professional but approachable
+      - Second person ("You can...")
+      - Active voice ("The function returns...")
+      - Positive framing ("Ensure that..." vs "Don't forget...")
+    
+    temperature: 0.6
+    max_tokens: 6000
+
+# ============================================================================
+# SECURITY CONFIGURATION
+# ============================================================================
+
+security:
+  # API Key Management
+  api_keys:
+    storage_preference: keyring  # keyring (most secure) > env > config
+    validate_on_store: true      # Test key with API call before storing
+    warn_on_config_file_keys: true  # Warn if keys are in config (insecure)
+    auto_rotate_reminder_days: 90   # Remind to rotate keys every 90 days
+    
+    # Key exposure prevention
+    filter_from_logs: true
+    filter_from_error_messages: true
+    filter_from_stack_traces: true
+  
+  # Rate Limiting (prevents abuse, protects API quotas)
+  rate_limits:
+    enabled: true
+    
+    # API call limits (per provider)
+    api_calls:
+      gemini: {limit: 100, window: 60}      # 100 calls/minute
+      anthropic: {limit: 50, window: 60}    # 50 calls/minute
+      openai: {limit: 60, window: 60}       # 60 calls/minute
+      ollama: {limit: 1000, window: 60}     # 1000 calls/minute (local)
+    
+    # User action limits (prevent spam)
+    user_actions:
+      room_creation: {limit: 10, window: 60}
+      message_send: {limit: 100, window: 60}
+      file_operations: {limit: 50, window: 60}
+    
+    # Behavior when rate limit hit
+    show_retry_after: true
+    auto_retry_with_backoff: true
+    max_retries: 3
+    backoff_multiplier: 2  # 1s, 2s, 4s
+  
+  # Input Validation (prevent injection attacks)
+  input_validation:
+    enabled: true
+    max_message_length: 50000       # chars
+    max_room_name_length: 50
+    max_agent_name_length: 50
+    
+    # Blocked patterns (prevent injection)
+    block_null_bytes: true
+    normalize_whitespace: true
+    max_consecutive_newlines: 3
+  
+  # File System Security
+  filesystem_security:
+    # Path traversal prevention
+    block_path_traversal: true      # Block .., symlinks
+    resolve_symlinks: true          # Always resolve to real path
+    
+    # Sensitive file patterns (always blocked)
+    blocked_patterns:
+      - "/etc/passwd"
+      - "/etc/shadow"
+      - "/.ssh/"
+      - "/.aws/"
+      - ".env"
+      - ".key"
+      - ".pem"
+      - "id_rsa"
+      - "credentials"
+    
+    # File size limits (prevent DoS)
+    max_file_read_size: 10485760    # 10 MB
+    max_file_write_size: 10485760   # 10 MB
+
+# ============================================================================
+# MCP TOOL CONFIGURATION
+# ============================================================================
+# Model Context Protocol tools allow agents to interact with your system.
+
+mcp:
+  # File system access
+  filesystem:
+    enabled: true
+    
+    # Permission mode controls when to ask for confirmation
+    # - always_ask: Confirm every operation (most secure)
+    # - selective: Smart rules - auto-approve safe operations (recommended)
+    # - trusted: Only confirm dangerous operations (delete, chmod)
+    permission_mode: selective
+    
+    # Paths agents can access (use absolute paths or ~ for home)
+    allowed_paths:
+      - "~/projects"
+      - "~/Documents"
+      - "~/Desktop"
+    
+    # Operations that always require confirmation (even in trusted mode)
+    dangerous_operations:
+      - delete
+      - chmod
+      - move
+    
+    # In 'selective' mode, auto-approve these operations
+    auto_approve:
+      - read          # Reading files is always safe
+      - create        # Creating new files is safe
+    
+    # Maximum file size agents can read (in bytes)
+    max_file_size: 10485760  # 10 MB
+    
+    # File types agents can modify (leave empty for all)
+    allowed_extensions:
+      - .py
+      - .js
+      - .ts
+      - .jsx
+      - .tsx
+      - .md
+      - .txt
+      - .yaml
+      - .yml
+      - .json
+      - .toml
+      - .html
+      - .css
+      - .sql
+  
+  # Web search capabilities
+  web_search:
+    enabled: true
+    provider: brave  # Options: brave, google, duckduckgo
+    max_results: 10
+    
+  # Code execution (disabled by default for security)
+  code_execution:
+    enabled: false
+    sandboxed: true
+    timeout_seconds: 30
+    allowed_languages:
+      - python
+      - javascript
+
+# ============================================================================
+# ADVANCED SETTINGS
+# ============================================================================
+
+# Retry settings for API calls
+retry:
+  max_attempts: 3
+  initial_delay: 1.0  # seconds
+  max_delay: 10.0
+  exponential_backoff: true
+
+# Logging
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  file: ~/.config/ateam/ateam.log
+  max_size_mb: 50
+  backup_count: 3
+
+# Performance
+performance:
+  async_api_calls: true
+  cache_responses: true
+  cache_ttl_hours: 24
+
+# Privacy
+privacy:
+  anonymize_logs: true
+  telemetry_enabled: false
+  crash_reports: false
