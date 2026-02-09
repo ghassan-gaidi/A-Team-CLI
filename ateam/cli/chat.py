@@ -17,6 +17,7 @@ from rich.text import Text
 
 from ateam.core import RoomManager, HistoryManager, AgentRouter, ConfigManager, ContextManager
 from ateam.security import SecureAPIKeyManager, InputValidator
+from ateam.tools.manager import ToolManager
 
 
 class ChatInterface:
@@ -35,6 +36,7 @@ class ChatInterface:
         self.history_manager = self.room_manager.get_history(room_name)
         self.config_manager = ConfigManager()
         self.router = AgentRouter(self.config_manager)
+        self.tool_manager = ToolManager()
         
         # State
         self.current_agent = self.config_manager.config.default_agent
@@ -121,18 +123,22 @@ class ChatInterface:
             
             # Prepare context
             # Get full history
-            full_history = self.history_manager.get_history(limit=50) # Get more for context
+            full_history = self.history_manager.get_history(limit=50) 
             msgs_for_llm = []
             for m in reversed(full_history):
-                # Simple mapping for now
                 role = "assistant" if m.role == "assistant" else "user"
                 msgs_for_llm.append({"role": role, "content": m.content})
+
+            # Prepare Enhanced System Prompt (Team Knowledge + Tools)
+            team_summary = self.config_manager.get_team_summary()
+            tools_info = self.tool_manager.get_tool_descriptions()
+            full_system_prompt = f"{agent_cfg.system_prompt}\n\n{team_summary}\n\n{tools_info}"
 
             # Trim context
             ctx_mgr = ContextManager(max_tokens=agent_cfg.max_tokens)
             trimmed_msgs = ctx_mgr.get_trimmed_context(
                 msgs_for_llm, 
-                system_prompt=agent_cfg.system_prompt
+                system_prompt=full_system_prompt
             )
 
             # Display "Thinking..."
@@ -148,13 +154,13 @@ class ChatInterface:
             full_response = ""
             with Live(Text("Thinking...", style="italic dim"), refresh_per_second=10) as live:
                 try:
-                    # Use streaming if supported (for better UX)
-                    async for chunk in provider.stream(trimmed_msgs):
+                    # Use streaming if supported
+                    async for chunk in provider.stream(trimmed_msgs, system_prompt=full_system_prompt):
                         full_response += chunk
                         live.update(Markdown(full_response))
                 except NotImplementedError:
                     # Fallback to non-streaming
-                    response = await provider.complete(trimmed_msgs)
+                    response = await provider.complete(trimmed_msgs, system_prompt=full_system_prompt)
                     full_response = response.content
                     live.update(Markdown(full_response))
 
@@ -164,6 +170,32 @@ class ChatInterface:
                 content=full_response, 
                 agent_tag=agent_name
             )
+
+            # --- Tool Call Handling ---
+            tool_calls = self.tool_manager.parse_calls(full_response)
+            for tool_name, tool_arg in tool_calls:
+                from rich.prompt import Confirm
+                self.console.print(Panel(f"[bold yellow]Tool Call:[/bold yellow] {tool_name}\n[dim]Args: {tool_arg}[/dim]", title="🛠️ Agent Action"))
+                
+                if Confirm.ask(f"Allow [bold magenta]@{agent_name}[/bold magenta] to execute this?", default=True):
+                    with self.console.status(f"[bold yellow]Executing {tool_name}...[/bold yellow]"):
+                        result = await self.tool_manager.run_tool(tool_name, tool_arg)
+                    
+                    self.console.print(Panel(result, title=f"✅ {tool_name} Result"))
+                    
+                    # Store tool result in history so the agent can see it next time
+                    self.history_manager.add_message(
+                        role="system", 
+                        content=f"Tool '{tool_name}' result:\n{result}",
+                        agent_tag="system"
+                    )
+                    
+                    # (Optional) We could automatically trigger a follow-up completion here,
+                    # but for terminal safety, we'll wait for the user to prompt or 
+                    # send another message. Or suggest it:
+                    if Confirm.ask(f"Let [bold magenta]@{agent_name}[/bold magenta] analyze the result?", default=True):
+                        await self._process_message(f"Analyze the result of the tool call.")
+                        return # avoid double metadata update
             
             # Show stats if enabled in config
             if self.config_manager.config.show_token_usage:
@@ -174,6 +206,15 @@ class ChatInterface:
             metadata = self.room_manager._load_metadata(self.room_name)
             metadata.message_count += 2 # User + AI
             self.room_manager._save_metadata(self.room_name, metadata)
+
+            # --- Agent Handoff Detection ---
+            suggested_agent = self.router.detect_handoff(full_response, agent_name)
+            if suggested_agent:
+                from rich.prompt import Confirm
+                self.console.print(f"\n[bold yellow]➔ Handoff Suggestion:[/bold yellow] [magenta]@{agent_name}[/magenta] suggested [cyan]@{suggested_agent}[/cyan]")
+                if Confirm.ask(f"Switch default agent to [bold cyan]@{suggested_agent}[/bold cyan]?", default=True):
+                    self.current_agent = suggested_agent
+                    self.console.print(f"[green]✓[/green] Default agent is now [bold magenta]@{self.current_agent}[/bold magenta]")
 
         except Exception as e:
             self.console.print(f"\n[bold red]Error:[/bold red] {e}")

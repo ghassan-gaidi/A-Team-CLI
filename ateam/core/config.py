@@ -102,3 +102,19 @@ class ConfigManager:
         if not self.config:
             raise RuntimeError("Config not loaded")
         return self.get_agent(self.config.default_agent)
+
+    def get_team_summary(self) -> str:
+        """Get a text summary of all available agents for shared context."""
+        if not self.config:
+            return ""
+        
+        summary = "You are part of the A-Team, a specialized squad of AI agents.\n"
+        summary += "Available teammates you can hand off to by mentioning them (e.g., 'Let @Coder handle this'):\n"
+        
+        for name, cfg in self.config.agents.items():
+            # Basic summary: name and a trimmed version of their system prompt or just their role
+            # We assume the first line of the system prompt describes their role
+            role_desc = cfg.system_prompt.split(".")[0]
+            summary += f"- @{name}: {role_desc}.\n"
+            
+        return summary

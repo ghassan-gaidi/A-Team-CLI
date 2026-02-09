@@ -42,27 +42,47 @@ class AgentRouter:
     def select_agent(self, text: str) -> Tuple[str, str]:
         """
         Determine which agent should respond and return the cleaned text.
-        
-        If multiple tags are present, the last one takes precedence.
-        If no tags are present, the default agent is used.
-
-        Returns:
-            Tuple of (agent_name, cleaned_text)
         """
         mentions = self.parse_mentions(text)
         
         if not mentions:
             return self.config.config.default_agent, text
 
-        # Use the first mention for now (or last, but first is more common for command style)
+        # Use the first mention
         selected = mentions[0]
         
-        # Clean the text if the tag is at the start
-        cleaned = text.replace(f"@{selected}", "").strip()
+        # Verify it's a valid agent, otherwise fallback to default
+        try:
+            self.config.get_agent(selected)
+            cleaned = text.replace(f"@{selected}", "").strip()
+            return selected, cleaned
+        except ValueError:
+            return self.config.config.default_agent, text
+
+    def detect_handoff(self, response_text: str, current_agent: str) -> Optional[str]:
+        """
+        Detect if an agent is suggesting a handoff to another agent.
         
-        # If multiple mentions, we might want to keep the others in text? 
-        # For now, just return the first one as the active agent.
-        return selected, cleaned
+        Args:
+            response_text: The AI's response.
+            current_agent: The name of the agent who sent the response.
+            
+        Returns:
+            The name of the suggested agent, if any.
+        """
+        mentions = self.parse_mentions(response_text)
+        for mention in mentions:
+            # Don't handoff to self
+            if mention.lower() == current_agent.lower():
+                continue
+            
+            # Check if it's a valid agent
+            try:
+                self.config.get_agent(mention)
+                return mention
+            except ValueError:
+                continue
+        return None
 
     def get_provider_for_agent(self, agent_name: str, api_key: str) -> BaseProvider:
         """
