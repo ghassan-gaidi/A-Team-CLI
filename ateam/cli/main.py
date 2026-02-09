@@ -32,20 +32,101 @@ def init() -> None:
 
 
 @app.command()
-def join(room_name: str) -> None:
+def join(
+    room_name: str = typer.Argument(..., help="Name of the room to join"),
+    description: str = typer.Option(None, "--description", "-d", help="Room description (for new rooms)"),
+) -> None:
     """
     Create or join a conversation room.
     
+    If the room doesn't exist, it will be created automatically.
+    
     Args:
         room_name: Name of the room to join
+        description: Optional description for new rooms
     """
-    console.print(f"[yellow]🚪 Joining room '{room_name}' - coming in Task 1.3![/yellow]")
+    from ateam.core import RoomManager
+    from rich.panel import Panel
+    
+    try:
+        manager = RoomManager()
+        
+        # Check if room exists
+        is_new = not manager.room_exists(room_name)
+        
+        # Join (or create) the room
+        metadata = manager.join_room(room_name)
+        
+        # Update description if provided
+        if description and is_new:
+            metadata = manager.update_room_metadata(room_name, description=description)
+        
+        # Display success message
+        if is_new:
+            console.print(Panel(
+                f"[green]✓[/green] Created and joined room: [bold cyan]{room_name}[/bold cyan]\n"
+                f"Messages: {metadata.message_count}\n"
+                f"Created: {metadata.created_at[:19]}",
+                title="🚪 New Room",
+                border_style="green"
+            ))
+        else:
+            console.print(Panel(
+                f"[green]✓[/green] Joined room: [bold cyan]{room_name}[/bold cyan]\n"
+                f"Messages: {metadata.message_count}\n"
+                f"Last active: {metadata.last_active[:19]}",
+                title="🚪 Joined Room",
+                border_style="cyan"
+            ))
+            
+    except ValueError as e:
+        console.print(f"[red]✗ Error:[/red] {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]✗ Unexpected error:[/red] {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
 def rooms() -> None:
     """List all available rooms."""
-    console.print("[yellow]📋 Room listing coming in Task 1.3![/yellow]")
+    from ateam.core import RoomManager
+    from rich.table import Table
+    
+    try:
+        manager = RoomManager()
+        room_list = manager.list_rooms()
+        
+        if not room_list:
+            console.print("[yellow]No rooms found.[/yellow]")
+            console.print("Create a room with: [cyan]ateam join <room-name>[/cyan]")
+            return
+        
+        # Create table
+        table = Table(title="📋 Available Rooms", show_header=True, header_style="bold cyan")
+        table.add_column("Room Name", style="cyan", no_wrap=True)
+        table.add_column("Messages", justify="right", style="green")
+        table.add_column("Last Active", style="yellow")
+        table.add_column("Description", style="dim")
+        
+        # Add rows
+        for room in room_list:
+            # Format last active timestamp
+            last_active = room.last_active[:19].replace("T", " ")
+            
+            table.add_row(
+                room.name,
+                str(room.message_count),
+                last_active,
+                room.description or ""
+            )
+        
+        console.print(table)
+        console.print(f"\n[dim]Total: {len(room_list)} room(s)[/dim]")
+        
+    except Exception as e:
+        console.print(f"[red]✗ Error:[/red] {e}")
+        raise typer.Exit(1)
 
 
 def main() -> None:

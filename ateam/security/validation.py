@@ -75,16 +75,16 @@ class RoomNameInput(BaseModel):
         if "\x00" in v:
             raise ValueError("Room name cannot contain null bytes")
 
+        # Block reserved names
+        reserved = {".", "..", "con", "prn", "aux", "nul"}
+        if v.lower() in reserved:
+            raise ValueError(f"Room name '{v}' is reserved")
+
         # Only alphanumeric, hyphens, underscores
         if not re.match(r"^[a-zA-Z0-9_-]+$", v):
             raise ValueError(
                 "Room name can only contain letters, numbers, hyphens, and underscores"
             )
-
-        # Block reserved names
-        reserved = {".", "..", "con", "prn", "aux", "nul"}
-        if v.lower() in reserved:
-            raise ValueError(f"Room name '{v}' is reserved")
 
         return v
 
@@ -150,11 +150,12 @@ class InputValidator:
     """
 
     # Sensitive file patterns (always blocked)
+    # Uses [\\/] to match both / and \ separator
     BLOCKED_PATTERNS = [
-        r"/etc/passwd",
-        r"/etc/shadow",
-        r"\.ssh/",
-        r"\.aws/",
+        r"(^|[\\/])etc[\\/]passwd",
+        r"(^|[\\/])etc[\\/]shadow",
+        r"[\\/]\.ssh[\\/]",
+        r"[\\/]\.aws[\\/]",
         r"\.env$",
         r"\.key$",
         r"\.pem$",
@@ -256,15 +257,15 @@ class InputValidator:
         # Convert to Path object
         path_obj = Path(expanded_path)
 
+        # Check for path traversal attempts (before resolving)
+        if ".." in path_obj.parts:
+            raise ValueError("Path traversal detected: '..' not allowed")
+
         # Resolve to absolute path (follows symlinks)
         try:
             resolved_path = path_obj.resolve()
         except (OSError, RuntimeError) as e:
             raise ValueError(f"Invalid file path: {e}") from e
-
-        # Check for path traversal attempts
-        if ".." in path_obj.parts:
-            raise ValueError("Path traversal detected: '..' not allowed")
 
         # Check against blocked patterns
         path_str = str(resolved_path)
