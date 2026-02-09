@@ -5,6 +5,7 @@ This module provides the command-line interface for A-Team using Typer.
 """
 
 import typer
+from pathlib import Path
 from rich.console import Console
 
 from ateam import __version__
@@ -27,8 +28,73 @@ def version() -> None:
 @app.command()
 def init() -> None:
     """Initialize A-Team configuration (interactive setup)."""
-    console.print("[yellow]⚙️  A-Team initialization coming in Task 1.2![/yellow]")
-    console.print("This will set up your API keys and configuration.")
+    from rich.panel import Panel
+    from rich.prompt import Confirm, Prompt
+    from ateam.security import SecureAPIKeyManager
+    from ateam.core import ConfigManager
+    import yaml
+    
+    console.print(Panel(
+        "[bold cyan]Welcome to the A-Team Initialization Wizard![/bold cyan]\n"
+        "This will set up your configuration file and help you securely store your API keys.",
+        title="🚀 A-Team Setup"
+    ))
+    
+    config_dir = Path.home() / ".config" / "ateam"
+    config_path = config_dir / "config.yaml"
+    
+    if config_path.exists():
+        if not Confirm.ask(f"[yellow]Configuration already exists at {config_path}. Overwrite?[/yellow]"):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
+    # Create directory
+    config_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Basic Config Template
+    config_data = {
+        "version": "1.0",
+        "default_agent": "Architect",
+        "context_window_size": 30,
+        "auto_prune": True,
+        "show_token_usage": True,
+        "agents": {
+            "Architect": {
+                "provider": "gemini",
+                "model": "gemini-1.5-flash",
+                "api_key_env": "GOOGLE_API_KEY",
+                "system_prompt": "You are a senior software architect. Focus on system design and high-level decisions.",
+                "temperature": 0.7
+            },
+            "Coder": {
+                "provider": "openai",
+                "model": "gpt-4o",
+                "api_key_env": "OPENAI_API_KEY",
+                "system_prompt": "You are an expert engineer. Focus on writing clean, efficient, and well-tested code.",
+                "temperature": 0.3
+            }
+        }
+    }
+    
+    with open(config_path, "w") as f:
+        yaml.dump(config_data, f, default_flow_style=False)
+    
+    console.print(f"[green]✓[/green] Created configuration at [bold]{config_path}[/bold]")
+    
+    # Key Storage
+    key_manager = SecureAPIKeyManager()
+    
+    if Confirm.ask("\nWould you like to store your API keys in the system keyring now?"):
+        for agent_name, cfg in config_data["agents"].items():
+            env_var = cfg["api_key_env"]
+            if Confirm.ask(f"Add key for [bold cyan]{agent_name}[/bold cyan] ({env_var})?"):
+                key = Prompt.ask(f"Enter your [bold yellow]{env_var}[/bold yellow]", password=True)
+                if key:
+                    key_manager.store_key(env_var, key)
+                    console.print(f"[green]✓[/green] Key stored for {env_var}")
+    
+    console.print("\n[bold green]Success![/bold green] A-Team is ready to roll.")
+    console.print("Try joining a room: [cyan]ateam join alpha[/cyan]")
 
 
 @app.command()
