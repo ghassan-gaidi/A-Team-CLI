@@ -136,7 +136,14 @@ class ChatInterface:
             )
 
             # Display "Thinking..."
-            self.console.print(f"\n[bold magenta]@{agent_name}[/bold magenta]")
+            provider_style = {
+                "gemini": "cyan",
+                "openai": "green",
+                "anthropic": "yellow",
+                "ollama": "blue"
+            }.get(agent_cfg.provider.lower(), "magenta")
+            
+            self.console.print(f"\n[bold {provider_style}]@{agent_name}[/bold {provider_style}] [dim]({agent_cfg.provider}/{agent_cfg.model})[/dim]")
             
             full_response = ""
             with Live(Text("Thinking...", style="italic dim"), refresh_per_second=10) as live:
@@ -158,6 +165,11 @@ class ChatInterface:
                 agent_tag=agent_name
             )
             
+            # Show stats if enabled in config
+            if self.config_manager.config.show_token_usage:
+                usage = ctx_mgr.get_token_usage(trimmed_msgs + [{"role": "assistant", "content": full_response}])
+                self.console.print(f"[dim]Tokens: {usage['total_tokens']} / {usage['max_tokens']} ({usage['usage_percent']}%)[/dim]")
+
             # Update room metadata
             metadata = self.room_manager._load_metadata(self.room_name)
             metadata.message_count += 2 # User + AI
