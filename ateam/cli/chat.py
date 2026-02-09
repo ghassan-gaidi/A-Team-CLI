@@ -42,13 +42,14 @@ class ChatInterface:
         self.current_agent = self.config_manager.config.default_agent
         self.should_exit = False
 
-    def _resolve_api_key(self, env_var: str) -> str:
+    def _resolve_api_key(self, provider: str) -> str:
         """Resolve API key using our secure manager."""
         # Try to get from keyring/env
-        key = self.key_manager.get_key(env_var)
+        key = self.key_manager.get_key(provider)
         if not key:
-            self.console.print(f"[bold red]Error:[/bold red] API key for [yellow]{env_var}[/yellow] not found.")
-            self.console.print("Please set it using: [cyan]ateam init[/cyan] (coming soon) or export it to your environment.")
+            env_var = self.key_manager.get_env_var_name(provider) or provider
+            self.console.print(f"[bold red]Error:[/bold red] API key for [yellow]{provider}[/yellow] ({env_var}) not found.")
+            self.console.print(f"Please set it using: [cyan]ateam init[/cyan] or export it to [bold]{env_var}[/bold].")
             return ""
         return key
 
@@ -115,7 +116,7 @@ class ChatInterface:
         
         try:
             agent_cfg = self.config_manager.get_agent(agent_name)
-            api_key = self._resolve_api_key(agent_cfg.api_key_env)
+            api_key = self._resolve_api_key(agent_cfg.provider)
             if not api_key:
                 return
 

@@ -90,8 +90,8 @@ def init() -> None:
             if Confirm.ask(f"Add key for [bold cyan]{agent_name}[/bold cyan] ({env_var})?"):
                 key = Prompt.ask(f"Enter your [bold yellow]{env_var}[/bold yellow]", password=True)
                 if key:
-                    key_manager.store_key(env_var, key)
-                    console.print(f"[green]✓[/green] Key stored for {env_var}")
+                    key_manager.store_key(cfg["provider"], key)
+                    console.print(f"[green]✓[/green] Key stored for {cfg['provider']} ({env_var})")
     
     console.print("\n[bold green]Success![/bold green] A-Team is ready to roll.")
     console.print("Try joining a room: [cyan]ateam join alpha[/cyan]")
