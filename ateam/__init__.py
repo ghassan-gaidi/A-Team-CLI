@@ -10,6 +10,9 @@ __author__ = "A-Team Contributors"
 
 from ateam.core.room import RoomManager, RoomMetadata
 from ateam.core.history import HistoryManager, Message
+from ateam.core.context import ContextManager
+from ateam.core.config import ConfigManager
+from ateam.core.router import AgentRouter
 from ateam.providers import BaseProvider, ProviderConfig, ProviderFactory
 
 __all__ = [
@@ -17,6 +20,9 @@ __all__ = [
     "RoomMetadata",
     "HistoryManager",
     "Message",
+    "ContextManager",
+    "ConfigManager",
+    "AgentRouter",
     "BaseProvider",
     "ProviderConfig",
     "ProviderFactory",
