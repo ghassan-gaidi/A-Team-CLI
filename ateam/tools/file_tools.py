@@ -20,9 +20,8 @@ class FileReadTool(BaseTool):
 
     async def execute(self, path: str, **kwargs) -> str:
         try:
-            # Validate path (allow current directory by default for now or project root)
-            # In a real app, we'd pass allowed_paths from config
-            safe_path = self.validator.validate_file_path(path)
+            # Restrict to current directory for safety
+            safe_path = self.validator.validate_file_path(path, allowed_paths=[os.getcwd()])
             
             if not safe_path.exists():
                 return f"Error: File '{path}' does not exist."
@@ -45,7 +44,7 @@ class FileWriteTool(BaseTool):
 
     async def execute(self, path: str, content: str, **kwargs) -> str:
         try:
-            safe_path = self.validator.validate_file_path(path)
+            safe_path = self.validator.validate_file_path(path, allowed_paths=[os.getcwd()])
             
             # Ensure parent directory exists
             safe_path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +70,7 @@ class FileListTool(BaseTool):
             if not path:
                 path = "."
                 
-            safe_path = self.validator.validate_file_path(path)
+            safe_path = self.validator.validate_file_path(path, allowed_paths=[os.getcwd()])
             
             if not safe_path.exists():
                 return f"Error: Directory '{path}' does not exist."

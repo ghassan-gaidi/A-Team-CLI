@@ -66,12 +66,34 @@ agents:
         cm = ConfigManager(mock_config)
         router = AgentRouter(cm)
         
-        # First tag wins or last tag? Currently first one is picked by extract but 
-        # let's verify my implementation. 
-        # In my code: mentions = self.parse_mentions(text); selected = mentions[0]
         agent, text = router.select_agent("@Architect @Coder What is the plan?")
         assert agent == "Architect"
-        assert "@Coder" in text # Other tags remain in text
+        assert "@Coder" in text 
+
+    def test_invalid_agent_tag_fallback(self, mock_config):
+        cm = ConfigManager(mock_config)
+        router = AgentRouter(cm)
+        
+        # @Unknown is not in config, should fallback to default agent
+        agent, text = router.select_agent("@Unknown Hello")
+        assert agent == "Architect"
+        assert "@Unknown Hello" in text or "Hello" in text # depends on implementation detail, currently it keeps text if fallback
+
+    def test_detect_handoff(self, mock_config):
+        cm = ConfigManager(mock_config)
+        router = AgentRouter(cm)
+        
+        # Agent suggesting another agent
+        suggested = router.detect_handoff("I think @Coder should handle this.", "Architect")
+        assert suggested == "Coder"
+        
+        # Don't suggest self
+        suggested = router.detect_handoff("I @Architect am the best.", "Architect")
+        assert suggested is None
+        
+        # Invalid agent mentioned
+        suggested = router.detect_handoff("Ask @Ghost to help.", "Architect")
+        assert suggested is None
 
     @pytest.mark.asyncio
     async def test_routing_to_provider(self, mock_config):
