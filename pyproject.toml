@@ -164,6 +164,7 @@ markers = [
     "security: Security tests",
     "slow: Slow tests",
 ]
+asyncio_mode = "auto"
 
 # Coverage - Code coverage reporting
 [tool.coverage.run]

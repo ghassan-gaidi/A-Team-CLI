@@ -8,13 +8,16 @@ in persistent conversation rooms with shared context and memory.
 __version__ = "0.1.0"
 __author__ = "A-Team Contributors"
 
-# These will be uncommented as we implement them in later tasks
-# from ateam.core.room import RoomManager
-# from ateam.core.history import HistoryManager
-# from ateam.core.context import ContextManager
+from ateam.core.room import RoomManager, RoomMetadata
+from ateam.core.history import HistoryManager, Message
+from ateam.providers import BaseProvider, ProviderConfig, ProviderFactory
 
 __all__ = [
-    # "RoomManager",
-    # "HistoryManager",
-    # "ContextManager",
+    "RoomManager",
+    "RoomMetadata",
+    "HistoryManager",
+    "Message",
+    "BaseProvider",
+    "ProviderConfig",
+    "ProviderFactory",
 ]
