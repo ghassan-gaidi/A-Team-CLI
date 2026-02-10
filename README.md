@@ -2,7 +2,22 @@
 
 A-Team is a powerful, secure, and extensible CLI designed for seamless multi-agent collaboration. It allows multiple AI specialists (Architects, Coders, Researchers) to work together in persistent chat rooms, hand off tasks to one another, and interact with your local system through a secure tool layer.
 
+
 ---
+
+## 🧪 Vibecoding & The Experiment
+
+> *"I am not really technical, I am vibecoding these projects, experimenting with AI IDEs limits."* — **GG**
+
+This project is a living experiment in **AI-driven development**. It was built by pushing the boundaries of what modern AI coding assistants can do, focusing on "vibes" and high-level intent rather than getting bogged down in implementation details.
+
+- **The `.context` folder**: This directory contains the actual prompts, friction logs, and design specs used to build this tool. It serves as an open-source learning resource for anyone interested in prompt engineering and AI-native development workflows.
+- **The Goal**: To see how far we can take an AI-generated codebase while maintaining security, usability, and a premium "cinematic" user experience.
+
+If you're curious about how this was built, dive into the `.context` folder—it's the DNA of the A-Team.
+
+---
+
 
 ## ✨ Key Features
 
@@ -123,7 +138,22 @@ agents:
     system_prompt: "You are a senior software architect..."
 ```
 
+
 ---
+
+## 🤝 Contributing
+
+This project is a vibe-first experiment, and I’d love for the community to jump in! Whether you're a seasoned developer or just experimenting with AI, contributions are welcome.
+
+- **Check out `.context/`**: Learn how the project evolved.
+- **Improved Prompts**: Found a better way to instruct the agents? Submit a PR!
+- **New Features**: Want a new Agent personality? Add it to `config.yaml` and share it.
+- **Bug Fixes**: Help solidify the vibecode into production-grade software.
+
+If you have ideas, open an issue or start a discussion. Let's push the limits of AI-assisted coding together.
+
+---
+
 
 ## 🧪 Development & Testing
 
