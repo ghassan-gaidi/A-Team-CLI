@@ -5,6 +5,7 @@ from ateam.core.history import HistoryManager, Message
 from ateam.core.context import ContextManager
 from ateam.core.config import ConfigManager, AgentConfig
 from ateam.core.router import AgentRouter
+from ateam.core.indexer import WorkspaceIndexer
 
 __all__ = [
     "RoomManager", 
@@ -14,5 +15,6 @@ __all__ = [
     "ContextManager",
     "ConfigManager",
     "AgentConfig",
-    "AgentRouter"
+    "AgentRouter",
+    "WorkspaceIndexer"
 ]

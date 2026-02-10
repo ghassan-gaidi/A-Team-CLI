@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A-Team Web Reflection</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="glass-bg"></div>
+    
+    <header>
+        <div class="logo">
+            <span class="pulse"></span>
+            <h1>A-TEAM <span>REFLECTION</span></h1>
+        </div>
+        <div id="connection-status" class="status-badge">Connecting...</div>
+    </header>
+
+    <main class="dashboard">
+        <aside class="sidebar">
+            <section class="rooms-panel glass">
+                <h2>📡 ACTIVE ROOMS</h2>
+                <ul id="room-list">
+                    <!-- Rooms populated via JS -->
+                </ul>
+            </section>
+        </aside>
+
+        <section class="main-content">
+            <div class="mission-status glass">
+                <div class="stat-card">
+                    <label>ACTIVE ROOM</label>
+                    <span id="current-room-name">-</span>
+                </div>
+                <div class="stat-card">
+                    <label>LEAD AGENT</label>
+                    <span id="lead-agent">@Architect</span>
+                </div>
+                <div class="stat-card">
+                    <label>MESSAGES</label>
+                    <span id="msg-count">0</span>
+                </div>
+            </div>
+
+            <section class="history-panel glass">
+                <h2>🕒 TIMELINE</h2>
+                <div id="chat-history" class="chat-container">
+                    <!-- Chat messages -->
+                </div>
+            </section>
+        </section>
+
+        <aside class="right-panel">
+            <section class="context-panel glass">
+                <h2>🧠 WORKSPACE CONTEXT</h2>
+                <div id="workspace-summary" class="summary-content">
+                    <!-- Indexer info -->
+                </div>
+            </section>
+        </aside>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

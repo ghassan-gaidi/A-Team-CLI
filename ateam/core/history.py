@@ -207,6 +207,16 @@ class HistoryManager:
             conn.close()
         return count
 
+    def get_token_usage(self) -> int:
+        """Get the total token usage in the room."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("SELECT SUM(tokens) FROM messages")
+            row = cursor.fetchone()
+            return row[0] if row and row[0] else 0
+        finally:
+            conn.close()
+
     def search_messages(self, query: str) -> List[Message]:
         """
         Search for messages containing the query string.

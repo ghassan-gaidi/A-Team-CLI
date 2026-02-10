@@ -3,6 +3,8 @@
 from ateam.security.api_keys import SecureAPIKeyManager
 from ateam.security.validation import InputValidator, MessageInput, RoomNameInput, AgentNameInput
 from ateam.security.rate_limiter import RateLimiter, RateLimitConfig
+from ateam.security.trust import TrustManager
+from ateam.security.critic import ShadowCritic
 
 __all__ = [
     "SecureAPIKeyManager",
@@ -12,4 +14,6 @@ __all__ = [
     "AgentNameInput",
     "RateLimiter",
     "RateLimitConfig",
+    "TrustManager",
+    "ShadowCritic",
 ]

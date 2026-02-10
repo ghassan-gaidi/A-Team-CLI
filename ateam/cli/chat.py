@@ -15,9 +15,13 @@ from rich.prompt import Prompt
 from rich.status import Status
 from rich.text import Text
 
-from ateam.core import RoomManager, HistoryManager, AgentRouter, ConfigManager, ContextManager
-from ateam.security import SecureAPIKeyManager, InputValidator
+from ateam.core import RoomManager, HistoryManager, AgentRouter, ConfigManager, ContextManager, WorkspaceIndexer
+from ateam.security import SecureAPIKeyManager, InputValidator, TrustManager, ShadowCritic
 from ateam.tools.manager import ToolManager
+from rich.layout import Layout
+from ateam.utils.diff_viewer import DiffViewer
+from ateam.utils.exporter import ManifestExporter
+import os
 
 
 class ChatInterface:
@@ -37,6 +41,10 @@ class ChatInterface:
         self.config_manager = ConfigManager()
         self.router = AgentRouter(self.config_manager)
         self.tool_manager = ToolManager()
+        self.trust_manager = TrustManager()
+        self.indexer = WorkspaceIndexer()
+        self.indexer.refresh() # Initial scan
+        self.shadow_critic = ShadowCritic(self.config_manager, self.console)
         
         # State
         self.current_agent = self.config_manager.config.default_agent
@@ -131,10 +139,18 @@ class ChatInterface:
                 role = "assistant" if m.role == "assistant" else "user"
                 msgs_for_llm.append({"role": role, "content": m.content})
 
-            # Prepare Enhanced System Prompt (Team Knowledge + Tools)
+            # Prepare Enhanced System Prompt (Team Knowledge + Tools + Workspace Index)
             team_summary = self.config_manager.get_team_summary()
             tools_info = self.tool_manager.get_tool_descriptions()
-            full_system_prompt = f"{agent_cfg.system_prompt}\n\n{team_summary}\n\n{tools_info}"
+            workspace_info = self.indexer.get_summary()
+            
+            full_system_prompt = (
+                f"{agent_cfg.system_prompt}\n\n"
+                f"{team_summary}\n\n"
+                f"### [AUTO-CONTEXT] WORKSPACE OVERVIEW\n"
+                f"{workspace_info}\n\n"
+                f"{tools_info}"
+            )
 
             # Trim context
             ctx_mgr = ContextManager(max_tokens=agent_cfg.max_tokens)
@@ -186,25 +202,61 @@ class ChatInterface:
                     title="🛠️ Agent Action"
                 ))
                 
-                if Confirm.ask(f"Allow [bold magenta]@{agent_name}[/bold magenta] to execute this?", default=True):
-                    with self.console.status(f"[bold yellow]Executing {tool_name}...[/bold yellow]"):
+                is_trusted = self.trust_manager.is_agent_trusted(agent_name)
+                
+                should_execute = False
+                
+                # Check for write_file to show diff
+                if tool_name == "write_file" and not is_trusted:
+                    path = call_info["args"].get("path")
+                    new_content = call_info["body"]
+                    if path:
+                        old_content = ""
+                        if os.path.exists(path):
+                            with open(path, "r", encoding="utf-8") as f:
+                                old_content = f.read()
+                        
+                        DiffViewer.show_diff(self.console, path, old_content, new_content)
+
+                if is_trusted:
+                    self.console.print(f"[bold green]✓ Agent @{agent_name} is TRUSTED. Auto-executing...[/bold green]")
+                    should_execute = True
+                elif Confirm.ask(f"Allow [bold magenta]@{agent_name}[/bold magenta] to execute this?", default=True):
+                    should_execute = True
+                
+                if should_execute:
+                    # Cinematic Layout for Tool Execution
+                    layout = Layout()
+                    layout.split_row(
+                        Layout(Panel(Markdown(full_response), title="Conversation Context", border_style="dim"), ratio=1),
+                        Layout(name="action", ratio=1)
+                    )
+                    layout["action"].update(Panel(Text("Executing tool...", style="yellow italic"), title=f"🛠️ {tool_name}"))
+                    
+                    with Live(layout, console=self.console, refresh_per_second=10):
                         result = await self.tool_manager.run_tool(call_info)
+                        layout["action"].update(Panel(result, title=f"✅ {tool_name} Result", border_style="green"))
                     
-                    self.console.print(Panel(result, title=f"✅ {tool_name} Result"))
-                    
-                    # Store tool result in history so the agent can see it next time
+                    # Store tool result in history
                     self.history_manager.add_message(
                         role="system", 
                         content=f"Tool '{tool_name}' result:\n{result}",
                         agent_tag="system"
                     )
+
+                    # Trigger Shadow Critic Audit (Background)
+                    asyncio.create_task(self.shadow_critic.audit_action(
+                        agent_name=agent_name,
+                        action=f"Tool: {tool_name}, Args: {tool_args}, Body: {tool_body}",
+                        result=result,
+                        context=f"Request: {user_input}\nResponse: {full_response}"
+                    ))
                     
-                    # (Optional) We could automatically trigger a follow-up completion here,
-                    # but for terminal safety, we'll wait for the user to prompt or 
-                    # send another message. Or suggest it:
                     if Confirm.ask(f"Let [bold magenta]@{agent_name}[/bold magenta] analyze the result?", default=True):
                         await self._process_message(f"Analyze the result of the tool call.")
-                        return # avoid double metadata update
+                        return 
+                else:
+                    self.console.print(f"[red]✗ Execution denied for {tool_name}.[/red]")
             
             # Show stats if enabled in config
             if self.config_manager.config.show_token_usage:
@@ -245,9 +297,14 @@ class ChatInterface:
 - [bold]/switch <room>[/bold]: Switch to a different room
 - [bold]/status[/bold]: Show current room and agent information
 - [bold]/history[/bold]: Show conversation history (last 50 messages)
+- [bold]/refresh[/bold]: Re-scan workspace for improved context
+- [bold]/web[/bold]: Launch the Web Reflection dashboard
+- [bold]/export[/bold]: Export mission history to a Markdown manifest
 - [bold]/clear[/bold]: Clear history in this room (irreversible!)
 - [bold]/agents[/bold]: List available agents
 - [bold]/agent <name>[/bold]: Switch default agent for this session
+- [bold]/trust [@agent] [minutes][/bold]: Grant temporary auto-execution trust
+- [bold]/untrust [@agent][/bold]: Revoke trust immediately
             """
             self.console.print(Panel(help_text, title="Help"))
 
@@ -292,6 +349,24 @@ class ChatInterface:
             for msg in reversed(history):
                 self._display_message(msg.role, msg.content, msg.agent_tag)
             self.console.print("[bold cyan]--- End ---[/bold cyan]\n")
+
+        elif cmd == "refresh":
+            with self.console.status("[bold yellow]Re-indexing workspace...[/bold yellow]"):
+                self.indexer.refresh()
+            self.console.print("[bold green]✓ Workspace index refreshed.[/bold green]")
+
+        elif cmd == "web":
+            import subprocess
+            import sys
+            # Start in a new process so it doesn't block the chat
+            subprocess.Popen([sys.executable, "-m", "ateam.cli.main", "web"], 
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.console.print("[bold green]🚀 Web Reflection launched at http://localhost:8080[/bold green]")
+
+        elif cmd == "export":
+            history = self.history_manager.get_history(limit=1000) # Fetch all
+            path = ManifestExporter.export(self.room_name, history)
+            self.console.print(f"[bold green]✓ Mission Manifest exported to:[/bold green] [cyan]{path}[/cyan]")
             
         elif cmd == "clear":
             if Prompt.ask("[red]Are you sure you want to clear history?[/red]", choices=["y", "n"]) == "y":
@@ -318,5 +393,20 @@ class ChatInterface:
             else:
                 self.console.print(f"Current default: [bold magenta]@{self.current_agent}[/bold magenta]")
         
+        elif cmd == "trust":
+            target = parts[1].lstrip("@") if len(parts) > 1 else self.current_agent
+            minutes = int(parts[2]) if len(parts) > 2 else 10
+            
+            if target in self.config_manager.config.agents:
+                self.trust_manager.trust_agent(target, minutes * 60)
+                self.console.print(f"[bold green]✓ Flow State enabled for @{target}.[/bold green] [{minutes} minutes]")
+            else:
+                self.console.print(f"[red]Agent '{target}' not found.[/red]")
+
+        elif cmd == "untrust":
+            target = parts[1].lstrip("@") if len(parts) > 1 else self.current_agent
+            self.trust_manager.revoke_trust(target)
+            self.console.print(f"[yellow]Trust revoked for @{target}.[/yellow]")
+
         else:
             self.console.print(f"[yellow]Unknown command: /{cmd}[/yellow]")

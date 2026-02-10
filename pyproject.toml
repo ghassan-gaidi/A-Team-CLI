@@ -83,10 +83,10 @@ dev = [
 ateam = "ateam.cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/ateam"
+Homepage = "https://github.com/ghassan-gaidi/A-Team-CLI"
 Documentation = "https://docs.ateam.dev"
-Repository = "https://github.com/yourusername/ateam"
-Issues = "https://github.com/yourusername/ateam/issues"
+Repository = "https://github.com/ghassan-gaidi/A-Team-CLI"
+Issues = "https://github.com/ghassan-gaidi/A-Team-CLI/issues"
 
 # ============================================================================
 # TOOL CONFIGURATION

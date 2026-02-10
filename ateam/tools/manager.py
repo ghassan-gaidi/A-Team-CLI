@@ -7,6 +7,8 @@ from typing import Dict, List, Any, Optional, Tuple
 from ateam.tools.base import BaseTool
 from ateam.tools.shell import ShellTool
 from ateam.tools.file_tools import FileReadTool, FileWriteTool, FileListTool
+from ateam.tools.search import SearchTool
+from ateam.mcp.manager import PluginManager
 
 
 class ToolManager:
@@ -30,6 +32,12 @@ class ToolManager:
         self.register(FileReadTool())
         self.register(FileWriteTool())
         self.register(FileListTool())
+        self.register(SearchTool())
+        
+        # Load dynamic plugins (MCP)
+        self.plugin_manager = PluginManager()
+        for tool in self.plugin_manager.load_plugins():
+            self.register(tool)
 
     def register(self, tool: BaseTool):
         self.tools[tool.name] = tool
@@ -82,9 +90,11 @@ class ToolManager:
 
         # Strategy for arguments:
         # If it's a 'read_file' or 'shell' or 'list_files', the body is the main arg.
-        if name in ("shell", "read_file", "list_files") and "path" not in kwargs and "command" not in kwargs:
+        if name in ("shell", "read_file", "list_files", "search") and "path" not in kwargs and "command" not in kwargs and "query" not in kwargs:
             if name == "shell":
                 kwargs["command"] = body
+            elif name == "search":
+                kwargs["query"] = body
             else:
                 kwargs["path"] = body
         elif name == "write_file":

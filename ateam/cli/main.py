@@ -240,6 +240,87 @@ def status() -> None:
         raise typer.Exit(1)
 
 
+@app.command()
+def web(port: int = typer.Option(8080, "--port", "-p", help="Port to run the web server on")) -> None:
+    """Launch the A-Team Reflection web dashboard."""
+    from ateam.web.server import start_server
+    import webbrowser
+    
+    # Try to open browser automatically
+    webbrowser.open(f"http://localhost:{port}")
+    
+    try:
+        start_server(port=port)
+    except Exception as e:
+        console.print(f"[red]✗ Error starting web server:[/red] {e}")
+
+
+@app.command()
+def dash() -> None:
+    """Launch the real-time Mission Control dashboard."""
+    from ateam.cli.dashboard import Dashboard
+    import asyncio
+    
+    dashboard = Dashboard()
+    try:
+        asyncio.run(dashboard.run())
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Dashboard closed.[/yellow]")
+
+
+@app.command()
+def spawn(
+    template: str = typer.Argument(..., help="Template name (python-web, cli-app, security-hardened)"),
+    name: str = typer.Argument(..., help="Project directory name"),
+) -> None:
+    """Spawn a new project from a team-approved template."""
+    from rich.status import Status
+    import os
+    
+    target = Path(os.getcwd()) / name
+    if target.exists():
+        console.print(f"[red]✗ Error:[/red] Directory [bold]{name}[/bold] already exists.")
+        raise typer.Exit(1)
+        
+    console.print(f"\n[bold cyan]🚀 Spawning Project:[/bold cyan] [white]{name}[/white] ([dim]{template}[/dim])")
+    
+    try:
+        with console.status(f"[bold yellow]Initializing from {template} template...[/bold yellow]"):
+            target.mkdir(parents=True)
+            
+            if template == "cli-app":
+                (target / "app.py").write_text(
+                    'import typer\nfrom rich.console import Console\n\napp = typer.Typer()\nconsole = Console()\n\n'
+                    '@app.command()\ndef hello(name: str = "World"):\n    console.print(f"[bold green]Hello {name}![/bold green] 🚀")\n\n'
+                    'if __name__ == "__main__":\n    app()', encoding="utf-8"
+                )
+                (target / "pyproject.toml").write_text(
+                    f'[project]\nname = "{name}"\nversion = "0.1.0"\n'
+                    'dependencies = ["typer", "rich"]\n\n'
+                    '[project.scripts]\n'
+                    f'{name} = "app:app"', encoding="utf-8"
+                )
+                (target / "README.md").write_text(f"# {name}\n\nSpawned by A-Team CLI.", encoding="utf-8")
+                
+            elif template == "python-web":
+                (target / "main.py").write_text(
+                    'from fastapi import FastAPI\n\napp = FastAPI()\n\n'
+                    '@app.get("/")\ndef read_root():\n    return {"Hello": "World"}\n', encoding="utf-8"
+                )
+                (target / "requirements.txt").write_text("fastapi\nuvicorn\n", encoding="utf-8")
+                
+            else:
+                console.print(f"[yellow]⚠ Template '{template}' is not fully defined in MVP. Creating empty project.[/yellow]")
+                (target / ".keep").touch()
+
+        console.print(f"[bold green]✓ Success![/bold green] Project created at [bold]{target.relative_to(os.getcwd())}[/bold]")
+        console.print(f"To get started: [cyan]cd {name} && explorer .[/cyan]")
+        
+    except Exception as e:
+        console.print(f"[bold red]✗ Error spawning project:[/bold red] {e}")
+        raise typer.Exit(1)
+
+
 def main() -> None:
     """Entry point for the CLI."""
     app()
