@@ -5,59 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A-Team Web Reflection</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="glass-bg"></div>
     
-    <header>
+    <header class="top-bar glass-card">
         <div class="logo">
-            <span class="pulse"></span>
-            <h1>A-TEAM <span>REFLECTION</span></h1>
+            <span class="logo-icon">🚀</span>
+            <span class="logo-text">A-Team</span>
         </div>
-        <div id="connection-status" class="status-badge">Connecting...</div>
+        
+        <div class="room-indicator">
+            <span class="room-label">Room:</span>
+            <span class="room-name" id="current-room-name">-</span>
+        </div>
+        
+        <div class="status-indicator live">
+            <span class="pulse"></span>
+            <span class="status-text">Live</span>
+        </div>
+        
+        <div class="top-bar-actions">
+            <button class="icon-button" title="Keyboard Shortcuts">⌨️</button>
+            <button class="icon-button" title="Settings">⚙️</button>
+        </div>
     </header>
 
     <main class="dashboard">
-        <aside class="sidebar">
-            <section class="rooms-panel glass">
-                <h2>📡 ACTIVE ROOMS</h2>
-                <ul id="room-list">
-                    <!-- Rooms populated via JS -->
-                </ul>
-            </section>
-        </aside>
-
-        <section class="main-content">
-            <div class="mission-status glass">
-                <div class="stat-card">
-                    <label>ACTIVE ROOM</label>
-                    <span id="current-room-name">-</span>
+        <!-- Sidebar -->
+        <aside class="sidebar glass-card">
+            <div class="sidebar-header">
+                <h2>Rooms</h2>
+                <button class="icon-button">+</button>
+            </div>
+            
+            <div class="room-filters">
+                <button class="filter active">All</button>
+                <button class="filter">Active</button>
+                <button class="filter">Starred</button>
+            </div>
+            
+            <div class="room-list" id="room-list">
+                <!-- Rooms populated via JS -->
+            </div>
+            
+            <div class="sidebar-stats">
+                <div class="stat">
+                    <span class="stat-label">Total Tokens</span>
+                    <span class="stat-value">45.2K</span>
                 </div>
-                <div class="stat-card">
-                    <label>LEAD AGENT</label>
-                    <span id="lead-agent">@Architect</span>
-                </div>
-                <div class="stat-card">
-                    <label>MESSAGES</label>
-                    <span id="msg-count">0</span>
+                <div class="stat">
+                    <span class="stat-label">Active Agents</span>
+                    <span class="stat-value">3</span>
                 </div>
             </div>
+        </aside>
 
-            <section class="history-panel glass">
-                <h2>🕒 TIMELINE</h2>
-                <div id="chat-history" class="chat-container">
-                    <!-- Chat messages -->
+        <!-- Chat Timeline -->
+        <section class="chat-timeline glass-card">
+            <div class="timeline-header">
+                <h1 id="timeline-room-name">Select a Room</h1>
+                <div class="timeline-controls">
+                    <button class="control-btn">Export</button>
+                    <button class="control-btn">Refresh Index</button>
                 </div>
-            </section>
+            </div>
+            
+            <div class="messages-container" id="chat-history">
+                <!-- Chat messages -->
+            </div>
+            
+            <!-- Typing Indicator -->
+            <div class="typing-indicator hidden" id="typing-indicator">
+                <div class="agent-avatar">C</div>
+                <div class="typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
         </section>
 
-        <aside class="right-panel">
-            <section class="context-panel glass">
-                <h2>🧠 WORKSPACE CONTEXT</h2>
-                <div id="workspace-summary" class="summary-content">
-                    <!-- Indexer info -->
+        <!-- Project Map -->
+        <aside class="project-map glass-card">
+            <div class="map-header">
+                <h2>Project Structure</h2>
+                <button class="refresh-button" onclick="refreshStructure()">↻</button>
+            </div>
+            
+            <div class="file-tree" id="file-tree">
+                <!-- File tree populated via JS -->
+            </div>
+            
+            <div class="project-stats">
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Files</div>
+                        <div class="stat-value" id="stat-files">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Lines</div>
+                        <div class="stat-value" id="stat-lines">0</div>
+                    </div>
                 </div>
-            </section>
+            </div>
         </aside>
     </main>
 

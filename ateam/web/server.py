@@ -1,94 +1,154 @@
 """
 Zero-dependency Web Server for A-Team Reflection.
-Uses http.server to provide a live dashboard.
+Uses FastAPI and WebSockets to provide a live dashboard.
 """
 
-import http.server
-import socketserver
 import json
-import os
-import urllib.parse
+import asyncio
 from pathlib import Path
+from typing import List
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
 from ateam.core import RoomManager, WorkspaceIndexer
 
 # Resolve static directory relative to this file
 STATIC_DIR = Path(__file__).parent
 
-class ReflectionHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
 
-    def do_GET(self):
-        # API Routes
-        if self.path.startswith('/api/'):
-            self._handle_api()
-        else:
-            # Static File Serving
-            super().do_GET()
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
 
-    def _handle_api(self):
-        parsed = urllib.parse.urlparse(self.path)
-        route = parsed.path.replace('/api/', '')
-        params = urllib.parse.parse_qs(parsed.query)
-        
-        manager = RoomManager()
-        
-        res_data = {}
-        status = 200
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
 
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="A-Team Reflection")
+
+    # CORS configuration
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Room Manager
+    room_manager = RoomManager()
+    
+    # Workspace Indexer
+    indexer = WorkspaceIndexer()
+
+    @app.get("/")
+    async def root():
+        return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/api/rooms")
+    async def get_rooms():
+        """List all active rooms with metadata."""
+        rooms = room_manager.list_rooms()
+        return [r.model_dump() for r in rooms]
+
+    @app.get("/api/history")
+    async def get_history(room: str):
+        """Get message history for a room."""
         try:
-            if route == 'rooms':
-                rooms = manager.list_rooms()
-                res_data = [r.model_dump() for r in rooms]
-                
-            elif route == 'history':
-                room_name = params.get('room', [None])[0]
-                if room_name:
-                    history_mgr = manager.get_history(room_name)
-                    # Get last 50 messages
-                    msgs = history_mgr.get_history(limit=50)
-                    res_data = []
-                    for m in msgs:
-                        res_data.append({
-                            "role": m.role,
-                            "content": m.content,
-                            "agent_tag": m.agent_tag,
-                            "timestamp": m.timestamp.isoformat()
-                        })
-                else:
-                    res_data = {"error": "Room name required"}
-                    status = 400
-
-            elif route == 'summary':
-                indexer = WorkspaceIndexer()
-                indexer.refresh()
-                res_data = indexer.get_summary()
-
-            else:
-                res_data = {"error": "Endpoint not found"}
-                status = 404
-
+            history_mgr = room_manager.get_history(room)
+            # Get last 50 messages
+            msgs = history_mgr.get_history(limit=50)
+            return [
+                {
+                    "role": m.role,
+                    "content": m.content,
+                    "agent_tag": m.agent_tag,
+                    "timestamp": m.timestamp.isoformat()
+                }
+                for m in msgs
+            ]
         except Exception as e:
-            res_data = {"error": str(e)}
-            status = 500
+            return {"error": str(e)}
 
-        # Send JSON response
-        self.send_response(status)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(res_data).encode('utf-8'))
+    @app.get("/api/summary")
+    async def get_summary():
+        """Get workspace summary."""
+        indexer.refresh()
+        return indexer.get_summary()
+        
+    @app.get("/api/structure")
+    async def get_structure():
+        """Get project file structure."""
+        # Simple file tree implementation
+        # In a real scenario, this would come from indexer or a recursive scan
+        # For now, we'll scan the current working directory (excluding .git, venv, etc.)
+        
+        root_path = Path.cwd()
+        ignore_dirs = {'.git', '.venv', 'venv', '__pycache__', '.idea', '.vscode', 'node_modules'}
+        
+        def build_tree(path: Path):
+            tree = {
+                "name": path.name,
+                "type": "directory" if path.is_dir() else "file",
+                "path": str(path.relative_to(root_path)),
+            }
+            
+            if path.is_dir():
+                children = []
+                try:
+                    for item in path.iterdir():
+                        if item.name in ignore_dirs:
+                            continue
+                        children.append(build_tree(item))
+                except PermissionError:
+                    pass
+                
+                # Sort: directories first, then files
+                children.sort(key=lambda x: (x["type"] == "file", x["name"].lower()))
+                tree["children"] = children
+                
+            return tree
+            
+        return build_tree(root_path)
 
-def start_server(port=8080):
-    handler = ReflectionHandler
-    # Allow port reuse to avoid 'Address already in use' errors
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", port), handler) as httpd:
-        print(f"🚀 A-Team Reflection Live at: http://localhost:{port}")
+    @app.websocket("/ws/{room_name}")
+    async def websocket_endpoint(websocket: WebSocket, room_name: str):
+        await manager.connect(websocket)
         try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\nShutting down server...")
-            httpd.shutdown()
+            while True:
+                # Keep connection alive
+                # In a real implementation, we would listen for events 
+                # (like new messages in the DB) and broadcast them.
+                # For now, simple echo or keep-alive
+                data = await websocket.receive_text()
+                # await manager.broadcast(f"Client says: {data}")
+        except WebSocketDisconnect:
+            manager.disconnect(websocket)
+
+    # Mount static files - MUST be last to avoid overriding API routes
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    return app
+
+app = create_app()
+
+def start_server(host="127.0.0.1", port=8080):
+    """Start the web server."""
+    print(f"🚀 A-Team Reflection Live at: http://{host}:{port}")
+    uvicorn.run(app, host=host, port=port, log_level="warning")
 
 if __name__ == "__main__":
     start_server()
