@@ -114,14 +114,21 @@ class ChatInterface:
             self.console.print(f"[italic]{content}[/italic]")
 
     async def _process_message(self, text: str) -> None:
-        """Route message to agent and handle response."""
-        # Detect agent
-        agent_name, cleaned_text = self.router.select_agent(text)
-        self.current_agent = agent_name
+        """Route message to agents and handle responses sequentially."""
+        # Detect agents (plural)
+        agent_names, cleaned_text = self.router.select_agents(text)
         
-        # Save user message
+        # Save user message once
         self.history_manager.add_message(role="user", content=text, agent_tag=None)
-        
+
+        for i, agent_name in enumerate(agent_names):
+            self.current_agent = agent_name
+            
+            # Execute turn for this agent
+            await self._run_single_agent_turn(agent_name, text)
+
+    async def _run_single_agent_turn(self, agent_name: str, user_input: str) -> None:
+        """Execute a single agent's turn in the conversation."""
         try:
             agent_cfg = self.config_manager.get_agent(agent_name)
             api_key = self._resolve_api_key(agent_cfg.provider)
@@ -247,13 +254,15 @@ class ChatInterface:
                     # Trigger Shadow Critic Audit (Background)
                     asyncio.create_task(self.shadow_critic.audit_action(
                         agent_name=agent_name,
-                        action=f"Tool: {tool_name}, Args: {tool_args}, Body: {tool_body}",
+                        action=f"Tool: {tool_name}, Args: {call_info['args']}, Body: {call_info['body']}",
                         result=result,
-                        context=f"Request: {user_input}\nResponse: {full_response}"
+                        context=f"Request: [User Input]\nResponse: {full_response}" 
                     ))
                     
                     if Confirm.ask(f"Let [bold magenta]@{agent_name}[/bold magenta] analyze the result?", default=True):
-                        await self._process_message(f"Analyze the result of the tool call.")
+                        # Recursive call for tool analysis
+                        # Note: We are already inside _run_single_agent_turn, so we call it again for the SAME agent
+                        await self._run_single_agent_turn(agent_name, user_input)
                         return 
                 else:
                     self.console.print(f"[red]✗ Execution denied for {tool_name}.[/red]")
@@ -265,7 +274,7 @@ class ChatInterface:
 
             # Update room metadata
             metadata = self.room_manager._load_metadata(self.room_name)
-            metadata.message_count += 2 # User + AI
+            metadata.message_count += 2 # User + AI (approx)
             self.room_manager._save_metadata(self.room_name, metadata)
 
             # --- Agent Handoff Detection ---
@@ -278,7 +287,7 @@ class ChatInterface:
                     self.console.print(f"[green]✓[/green] Default agent is now [bold magenta]@{self.current_agent}[/bold magenta]")
 
         except Exception as e:
-            self.console.print(f"\n[bold red]Error:[/bold red] {e}")
+            self.console.print(f"\n[bold red]Error in Agent Turn ({agent_name}):[/bold red] {e}")
 
     async def _handle_command(self, cmd_line: str) -> None:
         """Handle internal /commands."""

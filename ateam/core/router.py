@@ -39,25 +39,37 @@ class AgentRouter:
         """
         return self.AGENT_TAG_PATTERN.findall(text)
 
-    def select_agent(self, text: str) -> Tuple[str, str]:
+    def select_agents(self, text: str) -> Tuple[List[str], str]:
         """
-        Determine which agent should respond and return the cleaned text.
+        Determine which agent(s) should respond and return the cleaned text.
+        
+        Returns:
+            Tuple of (list of agent names, cleaned text)
         """
         mentions = self.parse_mentions(text)
         
-        if not mentions:
-            return self.config.config.default_agent, text
+        valid_agents = []
+        cleaned = text
 
-        # Use the first mention
-        selected = mentions[0]
+        for mention in mentions:
+            try:
+                self.config.get_agent(mention)
+                valid_agents.append(mention)
+                cleaned = cleaned.replace(f"@{mention}", "")
+            except ValueError:
+                continue
+                
+        cleaned = cleaned.strip()
+
+        if not valid_agents:
+            # Fallback to default agent if no valid mentions found
+            return [self.config.config.default_agent], cleaned
         
-        # Verify it's a valid agent, otherwise fallback to default
-        try:
-            self.config.get_agent(selected)
-            cleaned = text.replace(f"@{selected}", "").strip()
-            return selected, cleaned
-        except ValueError:
-            return self.config.config.default_agent, text
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_agents = [x for x in valid_agents if not (x in seen or seen.add(x))]
+
+        return unique_agents, cleaned
 
     def detect_handoff(self, response_text: str, current_agent: str) -> Optional[str]:
         """
