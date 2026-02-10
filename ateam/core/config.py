@@ -36,6 +36,7 @@ class GlobalConfig(BaseModel):
     default_agent: str
     context_window_size: int = 30
     auto_prune: bool = True
+    show_token_usage: bool = False
     agents: Dict[str, AgentConfig]
     security: Dict[str, Any] = Field(default_factory=dict)
 

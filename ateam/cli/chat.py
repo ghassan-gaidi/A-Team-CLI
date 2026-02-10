@@ -123,10 +123,11 @@ class ChatInterface:
             provider = self.router.get_provider_for_agent(agent_name, api_key)
             
             # Prepare context
-            # Get full history
+            # Get history in chronological order
             full_history = self.history_manager.get_history(limit=50) 
             msgs_for_llm = []
-            for m in reversed(full_history):
+            for m in full_history:
+                # Map roles: 'assistant' -> 'assistant', 'user' -> 'user', 'system' -> 'user' (for providers)
                 role = "assistant" if m.role == "assistant" else "user"
                 msgs_for_llm.append({"role": role, "content": m.content})
 

@@ -43,10 +43,12 @@ class ToolManager:
         for name, tool in self.tools.items():
             info += f"- {name}: {tool.description}\n"
         
-        info += "\nHow to call tools:\n"
-        info += "1. Simple arg: <tool_call name=\"read_file\">path/to/file</tool_call>\n"
-        info += "2. Named arg: <tool_call name=\"write_file\" path=\"test.txt\">Hello world</tool_call>\n"
-        info += "3. Shell: <tool_call name=\"shell\">ls -la</tool_call>\n"
+        info += "\n[CRITICAL] How to call tools:\n"
+        info += "1. Output the tool call tag EXACTLY once.\n"
+        info += "2. STOP writing immediately after the closing </tool_call> tag.\n"
+        info += "3. DO NOT simulate tool results, errors, or follow-up responses. Wait for the system to provide the result.\n"
+        info += "4. Format: <tool_call name=\"read_file\">path/to/file</tool_call>\n"
+        info += "5. For multi-arg: <tool_call name=\"write_file\" path=\"test.txt\">content</tool_call>\n"
         return info
 
     def parse_calls(self, text: str) -> List[Dict[str, Any]]:

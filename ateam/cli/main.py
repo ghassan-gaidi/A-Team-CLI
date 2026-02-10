@@ -61,7 +61,7 @@ def init() -> None:
         "agents": {
             "Architect": {
                 "provider": "gemini",
-                "model": "gemini-1.5-flash",
+                "model": "gemini-2.5-flash",
                 "api_key_env": "GOOGLE_API_KEY",
                 "system_prompt": "You are a senior software architect. Focus on system design and high-level decisions.",
                 "temperature": 0.7
